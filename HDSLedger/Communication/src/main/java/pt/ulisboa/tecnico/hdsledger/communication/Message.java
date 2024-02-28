@@ -11,6 +11,8 @@ public class Message implements Serializable {
     // Message type
     private Type type;
 
+    private byte[] signature;
+
     public enum Type {
         APPEND, PRE_PREPARE, PREPARE, COMMIT, ACK, IGNORE;
     }
@@ -43,4 +45,13 @@ public class Message implements Serializable {
     public void setType(Type type) {
         this.type = type;
     }
+
+    public void setSignature(byte[] signature){
+        this.signature = signature;
+    }
+
+    public byte[] getSignature(){
+        return this.signature;
+    }
+
 }

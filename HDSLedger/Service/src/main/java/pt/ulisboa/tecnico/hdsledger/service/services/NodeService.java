@@ -65,6 +65,10 @@ public class NodeService implements UDPService {
         this.commitMessages = new MessageBucket(nodesConfig.length);
     }
 
+    public void sendTestMessage(String senderId, Message message){
+        link.send(senderId, message);
+    }
+
     public ProcessConfig getConfig() {
         return this.config;
     }

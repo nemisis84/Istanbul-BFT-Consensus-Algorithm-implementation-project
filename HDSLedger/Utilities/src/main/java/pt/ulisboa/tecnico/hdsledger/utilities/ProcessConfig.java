@@ -11,6 +11,10 @@ public class ProcessConfig {
 
     private int port;
 
+    private int privateKey;
+
+    private int publicKey;
+
     public boolean isLeader() {
         return isLeader;
     }
@@ -27,5 +31,11 @@ public class ProcessConfig {
         return hostname;
     }
 
+    public String getPrivateKey() {
+        return String.valueOf(privateKey);
+    }
 
+    public String getPublicKey() {
+        return String.valueOf(publicKey);
+    }
 }

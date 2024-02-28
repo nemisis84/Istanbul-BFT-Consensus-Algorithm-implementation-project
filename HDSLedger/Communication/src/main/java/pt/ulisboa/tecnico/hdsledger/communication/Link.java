@@ -7,6 +7,7 @@ import pt.ulisboa.tecnico.hdsledger.utilities.*;
 
 import java.io.IOException;
 import java.net.*;
+
 import java.text.MessageFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -114,7 +115,9 @@ public class Link {
 
                     return;
                 }
-
+                //Create signature
+                // byte[] signature = Authenticate.signMessage(null, data.toString()); 
+                //append signature to data                // data.setSignature(signature);
                 for (;;) {
                     LOGGER.log(Level.INFO, MessageFormat.format(
                             "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
@@ -191,6 +194,12 @@ public class Link {
 
         String senderId = message.getSenderId();
         int messageId = message.getMessageId();
+
+        // boolean verifyied = Authenticate.verifyMessage(null, message.toString(), message.getSignature());
+        
+        // if (!verifyied){
+        //     return null; // What do we do here?
+        // }
 
         if (!nodes.containsKey(senderId))
             throw new HDSSException(ErrorMessage.NoSuchNode);

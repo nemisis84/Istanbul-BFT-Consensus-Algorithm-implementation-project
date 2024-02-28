@@ -3,24 +3,32 @@
         "id": "1",
         "isLeader": true,
         "hostname": "localhost",
-        "port": 3001
+        "port": 3001,
+        "privateKey": 111,
+        "publicKey": 222
     },
     {
         "id": "2",
         "isLeader": false,
         "hostname": "localhost",
-        "port": 3002
+        "port": 3002,
+        "privateKey": 111,
+        "publicKey": 222
     },
     {
         "id": "3",
         "isLeader": false,
         "hostname": "localhost",
-        "port": 3003
+        "port": 3003,
+        "privateKey": 111,
+        "publicKey": 222
     },
     {
         "id": "4",
         "isLeader": false,
         "hostname": "localhost",
-        "port": 3004
+        "port": 3004,
+        "privateKey": 111,
+        "publicKey": 222
     }
 ]

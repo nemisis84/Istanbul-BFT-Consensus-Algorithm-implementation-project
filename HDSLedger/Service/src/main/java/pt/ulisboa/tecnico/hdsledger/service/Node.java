@@ -2,6 +2,7 @@ package pt.ulisboa.tecnico.hdsledger.service;
 
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
+import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
@@ -28,7 +29,6 @@ public class Node {
             ProcessConfig[] nodeConfigs = new ProcessConfigBuilder().fromFile(nodesConfigPath);
             ProcessConfig leaderConfig = Arrays.stream(nodeConfigs).filter(ProcessConfig::isLeader).findAny().get();
             ProcessConfig nodeConfig = Arrays.stream(nodeConfigs).filter(c -> c.getId().equals(id)).findAny().get();
-
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Running at {1}:{2}; is leader: {3}",
                     nodeConfig.getId(), nodeConfig.getHostname(), nodeConfig.getPort(),
                     nodeConfig.isLeader()));
@@ -42,7 +42,9 @@ public class Node {
                     nodeConfigs);
 
             nodeService.listen();
-
+            Message message = new Message(nodeConfig.getId() ,Message.Type.APPEND);
+            nodeService.sendTestMessage("4", message);
+            
         } catch (Exception e) {
             e.printStackTrace();
         }
