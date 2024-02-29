@@ -1,5 +1,6 @@
 package pt.ulisboa.tecnico.hdsledger.utilities;
 
+
 public class ProcessConfig {
     public ProcessConfig() {}
 
@@ -26,6 +27,5 @@ public class ProcessConfig {
     public String getHostname() {
         return hostname;
     }
-
 
 }
