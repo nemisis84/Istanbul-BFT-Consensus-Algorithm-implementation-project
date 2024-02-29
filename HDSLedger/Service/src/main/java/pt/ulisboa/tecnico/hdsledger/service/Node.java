@@ -2,6 +2,7 @@ package pt.ulisboa.tecnico.hdsledger.service;
 
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
+import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
@@ -42,6 +43,18 @@ public class Node {
                     nodeConfigs);
 
             nodeService.listen();
+
+            Message message = new Message(nodeConfig.getId(), Message.Type.APPEND);
+            message.setValue("456");
+            if (nodeConfig.getId().equals("4")){
+                for (int i = 0; i < 4; i++) {
+                    Thread.sleep(500);
+                    String node = String.valueOf(i);
+                    nodeService.sendTestMessage(node, message);
+                  }
+                
+            }
+
 
         } catch (Exception e) {
             e.printStackTrace();

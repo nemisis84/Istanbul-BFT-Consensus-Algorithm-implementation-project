@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.service.services;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -63,6 +64,10 @@ public class NodeService implements UDPService {
 
         this.prepareMessages = new MessageBucket(nodesConfig.length);
         this.commitMessages = new MessageBucket(nodesConfig.length);
+    }
+
+    public void sendTestMessage(String senderId, Message message){
+        link.send(senderId, message);
     }
 
     public ProcessConfig getConfig() {
@@ -339,6 +344,19 @@ public class NodeService implements UDPService {
         }
     }
 
+    public void handleClientRequest(Message message){
+        if (this.config.isLeader()){
+            this.startConsensus(message.getValue());
+            // System.out.println("HEEERE");
+            // Message confirmationMessage = new Message(config.getId(), Message.Type.CLIENT_CONFIRMATION);
+            // confirmationMessage.setValue(message.getValue());
+            // link.send(message.getSenderId(), confirmationMessage);
+        }
+        else{
+            
+        }
+    }
+
     @Override
     public void listen() {
         try {
@@ -352,6 +370,11 @@ public class NodeService implements UDPService {
                         new Thread(() -> {
 
                             switch (message.getType()) {
+                                
+                                case APPEND ->{
+                                    this.handleClientRequest(message);
+                                }
+                                    
 
                                 case PRE_PREPARE ->
                                     uponPrePrepare((ConsensusMessage) message);
