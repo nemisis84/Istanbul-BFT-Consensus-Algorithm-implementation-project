@@ -5,8 +5,13 @@ import com.google.gson.Gson;
 import pt.ulisboa.tecnico.hdsledger.communication.Message.Type;
 import pt.ulisboa.tecnico.hdsledger.utilities.*;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.*;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.Signature;
 import java.text.MessageFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,7 +77,7 @@ public class Link {
      * Broadcasts a message to all nodes in the network
      *
      * @param data The message to be broadcasted
-     */
+     */ 
     public void broadcast(Message data) {
         Gson gson = new Gson();
         nodes.forEach((destId, dest) -> send(destId, gson.fromJson(gson.toJson(data), data.getClass())));
@@ -115,12 +120,14 @@ public class Link {
                     return;
                 }
 
+                
+
                 for (;;) {
                     LOGGER.log(Level.INFO, MessageFormat.format(
                             "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
                             data.getType(), destAddress, destPort, messageId, count++));
 
-                    unreliableSend(destAddress, destPort, data);
+                    authenticatedSend(destAddress, destPort, data);
 
                     // Wait (using exponential back-off), then look for ACK
                     Thread.sleep(sleepTime);
@@ -140,6 +147,39 @@ public class Link {
         }).start();
     }
 
+
+    // Create digital signature with sender node private key
+    public byte[] sign(byte[] data) throws Exception {   
+        Signature sig = Signature.getInstance("SHA256withRSA");
+        PrivateKey key = this.config.getPrivateKey();
+
+        sig.initSign(key);
+        sig.update(data);
+        byte[] signature = sig.sign();
+        return signature;
+    }
+
+
+    // Send message signed with digital signature
+    public void authenticatedSend(InetAddress hostname, int port, Message data) {
+        byte[] buf = new Gson().toJson(data).getBytes();
+
+        byte[] signature = null;
+        try {
+            signature = sign(buf);
+        } catch (Exception e) {
+            return;
+        }
+
+        // Append signature to message
+        byte[] newArray = new byte[buf.length + 128];
+        System.arraycopy(buf, 0, newArray, 0, buf.length);
+        System.arraycopy(signature, 0, newArray, buf.length, 128);
+
+        // Send message
+        unreliableSend(hostname, port, newArray);
+    }
+
     /*
      * Sends a message to a specific node without guarantee of delivery
      * Mainly used to send ACKs, if they are lost, the original message will be
@@ -151,11 +191,10 @@ public class Link {
      *
      * @param data The message to be sent
      */
-    public void unreliableSend(InetAddress hostname, int port, Message data) {
+    public void unreliableSend(InetAddress hostname, int port, byte[] data) {
         new Thread(() -> {
             try {
-                byte[] buf = new Gson().toJson(data).getBytes();
-                DatagramPacket packet = new DatagramPacket(buf, buf.length, hostname, port);
+                DatagramPacket packet = new DatagramPacket(data, data.length, hostname, port);
                 socket.send(packet);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -164,16 +203,39 @@ public class Link {
         }).start();
     }
 
+    // Verify the digital signature in a message
+    public Boolean verifySignature(byte[] data, byte[] signature, String senderId) {
+        // Verify signature
+        try {
+            PublicKey senderPubKey = this.config.getNodePubKey(senderId);
+            Signature sig = Signature.getInstance("SHA256withRSA");
+            sig.initVerify(senderPubKey);
+            sig.update(data);
+            if (!sig.verify(signature)) {
+                System.out.println("Signature is incorrect.");
+                return false;
+            } else {
+                System.out.println("Signature verified!");
+                return true;
+            }
+         
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+
     /*
      * Receives a message from any node in the network (blocking)
      */
     public Message receive() throws IOException, ClassNotFoundException {
 
+        System.out.println("Received a message");
         Message message = null;
         String serialized = "";
         Boolean local = false;
         DatagramPacket response = null;
-        
+
         if (this.localhostQueue.size() > 0) {
             message = this.localhostQueue.poll();
             local = true; 
@@ -185,8 +247,20 @@ public class Link {
             socket.receive(response);
 
             byte[] buffer = Arrays.copyOfRange(response.getData(), 0, response.getLength());
-            serialized = new String(buffer);
+
+            // Split message into message and signature
+            byte[] m = new byte[buffer.length-128];
+            byte[] signature = new byte[128];
+            System.arraycopy(buffer, 0, m, 0, buffer.length-128);
+            System.arraycopy(buffer, buffer.length-128, signature, 0, 128);
+            
+            serialized = new String(m);
             message = new Gson().fromJson(serialized, Message.class);
+
+            // Verify signature
+            if (!verifySignature(m, signature, message.getSenderId())) {
+                return null;
+            }
         }
 
         String senderId = message.getSenderId();
@@ -194,8 +268,10 @@ public class Link {
 
         if (!nodes.containsKey(senderId))
             throw new HDSSException(ErrorMessage.NoSuchNode);
-
+        
+ 
         // Handle ACKS, since it's possible to receive multiple acks from the same
+
         // message
         if (message.getType().equals(Message.Type.ACK)) {
             receivedAcks.add(messageId);
@@ -236,6 +312,7 @@ public class Link {
             default -> {}
         }
 
+        // Send ack
         if (!local) {
             InetAddress address = InetAddress.getByName(response.getAddress().getHostAddress());
             int port = response.getPort();
@@ -247,7 +324,7 @@ public class Link {
             // we're assuming an eventually synchronous network
             // Even if a node receives the message multiple times,
             // it will discard duplicates
-            unreliableSend(address, port, responseMessage);
+            authenticatedSend(address, port, responseMessage);
         }
         
         return message;
