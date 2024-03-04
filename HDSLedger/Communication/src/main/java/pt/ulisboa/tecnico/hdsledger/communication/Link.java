@@ -77,8 +77,9 @@ public class Link {
      * Broadcasts a message to all nodes in the network
      *
      * @param data The message to be broadcasted
-     */ 
+     */
     public void broadcast(Message data) {
+        System.out.println("Broadcasting message");// ! remove
         Gson gson = new Gson();
         nodes.forEach((destId, dest) -> send(destId, gson.fromJson(gson.toJson(data), data.getClass())));
     }
@@ -120,8 +121,6 @@ public class Link {
                     return;
                 }
 
-                
-
                 for (;;) {
                     LOGGER.log(Level.INFO, MessageFormat.format(
                             "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
@@ -147,9 +146,8 @@ public class Link {
         }).start();
     }
 
-
     // Create digital signature with sender node private key
-    public byte[] sign(byte[] data) throws Exception {   
+    public byte[] sign(byte[] data) throws Exception {
         Signature sig = Signature.getInstance("SHA256withRSA");
         PrivateKey key = this.config.getPrivateKey();
 
@@ -158,7 +156,6 @@ public class Link {
         byte[] signature = sig.sign();
         return signature;
     }
-
 
     // Send message signed with digital signature
     public void authenticatedSend(InetAddress hostname, int port, Message data) {
@@ -218,12 +215,11 @@ public class Link {
                 System.out.println("Signature verified!");
                 return true;
             }
-         
+
         } catch (Exception e) {
             return false;
         }
     }
-
 
     /*
      * Receives a message from any node in the network (blocking)
@@ -238,7 +234,7 @@ public class Link {
 
         if (this.localhostQueue.size() > 0) {
             message = this.localhostQueue.poll();
-            local = true; 
+            local = true;
             this.receivedAcks.add(message.getMessageId());
         } else {
             byte[] buf = new byte[65535];
@@ -249,11 +245,11 @@ public class Link {
             byte[] buffer = Arrays.copyOfRange(response.getData(), 0, response.getLength());
 
             // Split message into message and signature
-            byte[] m = new byte[buffer.length-128];
+            byte[] m = new byte[buffer.length - 128];
             byte[] signature = new byte[128];
-            System.arraycopy(buffer, 0, m, 0, buffer.length-128);
-            System.arraycopy(buffer, buffer.length-128, signature, 0, 128);
-            
+            System.arraycopy(buffer, 0, m, 0, buffer.length - 128);
+            System.arraycopy(buffer, buffer.length - 128, signature, 0, 128);
+
             serialized = new String(m);
             message = new Gson().fromJson(serialized, Message.class);
 
@@ -268,8 +264,7 @@ public class Link {
 
         if (!nodes.containsKey(senderId))
             throw new HDSSException(ErrorMessage.NoSuchNode);
-        
- 
+
         // Handle ACKS, since it's possible to receive multiple acks from the same
 
         // message
@@ -309,7 +304,8 @@ public class Link {
                 if (consensusMessage.getReplyTo() != null && consensusMessage.getReplyTo().equals(config.getId()))
                     receivedAcks.add(consensusMessage.getReplyToMessageId());
             }
-            default -> {}
+            default -> {
+            }
         }
 
         // Send ack
@@ -326,7 +322,7 @@ public class Link {
             // it will discard duplicates
             authenticatedSend(address, port, responseMessage);
         }
-        
+
         return message;
     }
 }
