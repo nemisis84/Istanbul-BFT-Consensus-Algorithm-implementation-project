@@ -341,19 +341,25 @@ public class NodeService implements UDPService {
                     MessageFormat.format(
                             "{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
                             config.getId(), consensusInstance, round, true));
+            if (this.config.isLeader()){
+                // TODO: Modify this such that the client that sends the request to the server application gets the answer
+                // What if the leader gets changes during the round?
+                // What if multiple client requests are handled asynchrounously. 
+                Message confirmationMessage = new Message(config.getId(), Message.Type.CLIENT_CONFIRMATION);
+                confirmationMessage.setValue(message.getValue());
+                link.send(message.getSenderId(), confirmationMessage);
+                System.out.println(message.getSenderId());
+                System.out.println(config.getId());
+            }
         }
     }
 
     public void handleClientRequest(Message message){
         if (this.config.isLeader()){
             this.startConsensus(message.getValue());
-            // System.out.println("HEEERE");
-            // Message confirmationMessage = new Message(config.getId(), Message.Type.CLIENT_CONFIRMATION);
-            // confirmationMessage.setValue(message.getValue());
-            // link.send(message.getSenderId(), confirmationMessage);
         }
         else{
-            
+
         }
     }
 
