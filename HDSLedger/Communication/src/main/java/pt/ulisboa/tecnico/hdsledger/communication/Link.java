@@ -79,7 +79,6 @@ public class Link {
      * @param data The message to be broadcasted
      */
     public void broadcast(Message data) {
-        System.out.println("Broadcasting message");// ! remove
         Gson gson = new Gson();
         nodes.forEach((destId, dest) -> send(destId, gson.fromJson(gson.toJson(data), data.getClass())));
     }
@@ -122,9 +121,11 @@ public class Link {
                 }
 
                 for (;;) {
+                    System.out.println("Sending message to " + nodeId + " " + data.getType());// ! remove
                     LOGGER.log(Level.INFO, MessageFormat.format(
                             "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
-                            data.getType(), destAddress, destPort, messageId, count++));
+                            data.getType(), destAddress, destPort, messageId, count++)); // ! this does not appear in
+                                                                                         // the cli
 
                     authenticatedSend(destAddress, destPort, data);
 
@@ -132,6 +133,7 @@ public class Link {
                     Thread.sleep(sleepTime);
 
                     // Receive method will set receivedAcks when sees corresponding ACK
+                    // ! signature fine now, but no ack received
                     if (receivedAcks.contains(messageId))
                         break;
 
@@ -165,6 +167,7 @@ public class Link {
         try {
             signature = sign(buf);
         } catch (Exception e) {
+            System.out.println("Error signing message");
             return;
         }
 
@@ -174,6 +177,7 @@ public class Link {
         System.arraycopy(signature, 0, newArray, buf.length, 128);
 
         // Send message
+        System.out.println("Fine until here"); // ! remove
         unreliableSend(hostname, port, newArray);
     }
 
@@ -262,7 +266,7 @@ public class Link {
         String senderId = message.getSenderId();
         int messageId = message.getMessageId();
 
-        if (!nodes.containsKey(senderId))
+        if (!nodes.containsKey(senderId) && !senderId.contains("client"))
             throw new HDSSException(ErrorMessage.NoSuchNode);
 
         // Handle ACKS, since it's possible to receive multiple acks from the same

@@ -36,15 +36,12 @@ public class Client {
     private static final String CLIENTCONFIGPATH = "src/main/resources/client_config.json";
     private static final String NODECONFIGPATH = "src/main/resources/regular_config.json";
 
-    private static final int CLIENT_PORT = 3010; // For incoming datagrams
-    private static final String HOST = "localhost"; // Replace with the actual service host
-
-    private static final String id = "client1"; // ! adjust this to make sense once functioning
-
     public static void main(String[] args) {
         try {
+            String id = args[0];
             Scanner scanner = new Scanner(System.in);
 
+            // Set up the link to the nodes
             InputStream resourceStream = Client.class.getClassLoader().getResourceAsStream(NODECONFIGPATH);
 
             // Creating a link to the service
@@ -53,7 +50,11 @@ public class Client {
             ProcessConfig[] clientConfigs = new ProcessConfigBuilder().fromFile(CLIENTCONFIGPATH);
             ProcessConfig clientConfig = Arrays.stream(clientConfigs).filter(c -> c.getId().equals(id)).findAny().get();
 
-            Link link = new Link(clientConfig, CLIENT_PORT, nodeConfigs, ConsensusMessage.class);
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Running at {1}:{2}; is leader: {3}",
+                    clientConfig.getId(), clientConfig.getHostname(), clientConfig.getPort(),
+                    clientConfig.isLeader()));
+
+            Link link = new Link(clientConfig, clientConfig.getPort(), nodeConfigs, ConsensusMessage.class);
 
             // Continuous loop to read user commands
             while (true) {
@@ -64,11 +65,10 @@ public class Client {
                     case "append":
                         // Extract the payload from the user input
                         String payload = userCommand.substring("append".length()).trim();
-                        Message message = new Message(id, Message.Type.APPEND);
+                        Message message = new Message(clientConfig.getId(), Message.Type.APPEND);
                         message.setValue(payload);
                         link.broadcast(message);
 
-                        System.out.println("Sent append message to the service");
                         break;
                     case "quit":
                         // Handle other commands as needed
