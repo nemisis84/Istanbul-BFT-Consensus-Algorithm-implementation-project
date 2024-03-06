@@ -47,13 +47,9 @@ public class Node {
             NodeService nodeService = new NodeService(linkToNodes, nodeConfig, leaderConfig,
                     nodeConfigs);
 
-            if (nodeConfig.getId().equals("2") || nodeConfig.getId().equals("3")) {
+            if (nodeConfig.isLeader())
                 return;
-            }
-
-            if (nodeConfig.getId().equals("1") || nodeConfig.getId().equals("4")) {
-                nodeService.startConsensus("a");
-            }
+            
             
             nodeService.listen();
 

@@ -21,6 +21,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.PrePrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.PrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.builder.ConsensusMessageBuilder;
+import pt.ulisboa.tecnico.hdsledger.service.models.ByzantineBucket;
 import pt.ulisboa.tecnico.hdsledger.service.models.InstanceInfo;
 import pt.ulisboa.tecnico.hdsledger.service.models.MessageBucket;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
@@ -35,15 +36,22 @@ public class NodeService implements UDPService {
     // Current node is leader
     private final ProcessConfig config;
     // Leader configuration
-    private final ProcessConfig leaderConfig;
+    private ProcessConfig leaderConfig;
 
     // Link to communicate with nodes
     private final Link link;
+
+    private Timer timer;
+
+    private int timeout;
 
     // Consensus instance -> Round -> List of prepare messages
     private final MessageBucket prepareMessages;
     // Consensus instance -> Round -> List of commit messages
     private final MessageBucket commitMessages;
+
+    //private final ByzantineBucket roundChangeMessages;
+    private final ArrayList<RoundChangeMessage> roundChangeMessages;
 
     // Store if already received pre-prepare for a given <consensus, round>
     private final Map<Integer, Map<Integer, Boolean>> receivedPrePrepare = new ConcurrentHashMap<>();
@@ -60,6 +68,8 @@ public class NodeService implements UDPService {
     // Client requests
     private String clientRequestID;
 
+    private String inputValue;
+
     public NodeService(Link link, ProcessConfig config,
             ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) {
 
@@ -70,6 +80,9 @@ public class NodeService implements UDPService {
 
         this.prepareMessages = new MessageBucket(nodesConfig.length);
         this.commitMessages = new MessageBucket(nodesConfig.length);
+        this.roundChangeMessages = new ArrayList<RoundChangeMessage>();
+
+        this.timeout = 5000;
     }
 
     public void sendTestMessage(String nodeId, Message message) {
@@ -79,7 +92,6 @@ public class NodeService implements UDPService {
     public void sendClientMessage(Message message) {
         link.broadcast(message);
     }
-
 
     public ProcessConfig getConfig() {
         return this.config;
@@ -109,6 +121,22 @@ public class NodeService implements UDPService {
         return consensusMessage;
     }
 
+    public void updateLeader() {
+        
+        int localConsensusInstance = this.consensusInstance.get();
+        InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
+        for (ProcessConfig node : nodesConfig) {
+            if (Integer.parseInt(node.getId()) == instance.getCurrentRound()%nodesConfig.length) {
+                node.setleader(true);
+                this.leaderConfig = node;
+                System.out.println("----------------------------------- \nUpdating leader to \n" + node.getId());
+
+            } else {
+                node.setleader(false);
+            }
+        }
+    }
+
 
     public void startChangeRound() {
         int localConsensusInstance = this.consensusInstance.get();
@@ -119,10 +147,65 @@ public class NodeService implements UDPService {
         RoundChangeMessage message = new RoundChangeMessage(config.getId(), Message.Type.ROUND_CHANGE, localConsensusInstance, instance.getCurrentRound(),instance.getPreparedRound(), instance.getPreparedValue());
 
         this.link.broadcast(message);
+
+        startTimer();
+
+        updateLeader();
+    }
+
+
+    public void uponRoundChange(RoundChangeMessage message) {
+        roundChangeMessages.add(message);
+        int localConsensusInstance = this.consensusInstance.get();
+        InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
+
+        // Received quorum of ROUND_CHANGE
+        int numMessages = (int) roundChangeMessages.stream().
+        filter(entry -> entry.getConsensusInstance() == localConsensusInstance).filter(entry -> entry.getRound() == instance.getCurrentRound()).count();
+
+        int f = Math.floorDiv(nodesConfig.length - 1, 3);
+        int quorum = Math.floorDiv(nodesConfig.length + f, 2) + 1;
+
+        if (numMessages >=  quorum && this.config.isLeader()) {
+             // Leader broadcasts PRE-PREPARE message
+            if (this.config.isLeader()) {
+                LOGGER.log(Level.INFO,
+                        MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
+                this.link.broadcast(this.createConsensusMessage(this.inputValue, localConsensusInstance, instance.getCurrentRound()));
+            } else {
+                LOGGER.log(Level.INFO,
+                        MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
+            }
+        }
+
+        numMessages = (int) roundChangeMessages.stream().
+            filter(entry -> entry.getConsensusInstance() == localConsensusInstance).filter(entry -> entry.getRound() > instance.getCurrentRound()).count();
+        // Received f+1 round_change 
+        if (numMessages > (Math.floorDiv(nodesConfig.length - 1, 3)+1)) {
+            updateLeader();
+
+            int newRound = roundChangeMessages.stream().filter(entry -> entry.getConsensusInstance() == localConsensusInstance)
+            .filter(entry -> entry.getRound() > instance.getCurrentRound())
+            .mapToInt(entry->entry.getRound()).min().orElseThrow();
+            
+            instance.setCurrentRound(newRound);
+
+            RoundChangeMessage newMessage = new RoundChangeMessage(config.getId(), Message.Type.ROUND_CHANGE, localConsensusInstance, instance.getCurrentRound(),instance.getPreparedRound(), instance.getPreparedValue());
+
+            this.link.broadcast(newMessage);
+
+            startTimer();
+        }
+    }
+
+    public void cancelTimer() {
+        if (timer != null)
+            timer.cancel();
     }
 
 
     private void startTimer() {
+        cancelTimer();
         TimerTask task = new TimerTask() {
             @Override
             public void run()  {
@@ -131,11 +214,9 @@ public class NodeService implements UDPService {
             }
         };
 
-        Timer timer = new Timer(true); // Daemon thread
-        timer.schedule(task, 1000); // 1000 milliseconds = 1 second
+        timer = new Timer(true); // Daemon thread
+        timer.schedule(task, timeout); // 1000 milliseconds = 1 second
     }
-
-
 
 
     /*
@@ -146,6 +227,7 @@ public class NodeService implements UDPService {
      * @param inputValue Value to value agreed upon
      */
     public void startConsensus(String value) {
+        this.inputValue = value;
 
         // Set initial consensus values
         int localConsensusInstance = this.consensusInstance.incrementAndGet();
@@ -168,6 +250,8 @@ public class NodeService implements UDPService {
             }
         }
 
+        startTimer();
+
         // Leader broadcasts PRE-PREPARE message
         if (this.config.isLeader()) {
             InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
@@ -178,8 +262,6 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO,
                     MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
         }
-
-        startTimer();
     }
 
     /*
@@ -398,9 +480,9 @@ public class NodeService implements UDPService {
     }
 
     public void handleClientRequest(Message message) {
-        if (this.config.isLeader()) {
-            this.startConsensus(message.getValue());
-        } 
+        
+        this.startConsensus(message.getValue());
+        
         // This should maybe 
         this.clientRequestID = message.getSenderId();
     }
@@ -420,16 +502,6 @@ public class NodeService implements UDPService {
                         // non verified messages
                         if (message == null) return;
 
-                        System.out.println("Receiving " + message.getType());
-
-                        // non verified messages
-                        if (message == null) return;
-
-                        System.out.println("Receiving " + message.getType());
-
-                        // non verified messages
-                        if (message == null)
-                            return;
 
                         // Separate thread to handle each message
                         new Thread(() -> {
@@ -450,7 +522,7 @@ public class NodeService implements UDPService {
                                     uponCommit((ConsensusMessage) message);
 
                                 case ROUND_CHANGE ->
-                                    System.out.println((RoundChangeMessage) message);
+                                    uponRoundChange((RoundChangeMessage) message);
 
 
                                 case ACK ->
