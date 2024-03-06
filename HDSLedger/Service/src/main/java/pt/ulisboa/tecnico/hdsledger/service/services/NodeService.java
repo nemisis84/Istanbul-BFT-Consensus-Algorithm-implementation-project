@@ -54,6 +54,9 @@ public class NodeService implements UDPService {
     // Ledger (for now, just a list of strings)
     private ArrayList<String> ledger = new ArrayList<String>();
 
+    // Client requests
+    private String clientRequestID;
+
     public NodeService(Link link, ProcessConfig config,
             ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) {
 
@@ -352,7 +355,7 @@ public class NodeService implements UDPService {
                 // What if multiple client requests are handled asynchrounously.
                 Message confirmationMessage = new Message(config.getId(), Message.Type.CLIENT_CONFIRMATION);
                 confirmationMessage.setValue(message.getValue());
-                link.send(message.getSenderId(), confirmationMessage);
+                link.send(clientRequestID, confirmationMessage);
                 System.out.println(message.getSenderId());
                 System.out.println(config.getId());
             }
@@ -362,9 +365,9 @@ public class NodeService implements UDPService {
     public void handleClientRequest(Message message) {
         if (this.config.isLeader()) {
             this.startConsensus(message.getValue());
-        } else {
-
-        }
+        } 
+        // This should maybe 
+        this.clientRequestID = message.getSenderId();
     }
 
     @Override
@@ -408,6 +411,11 @@ public class NodeService implements UDPService {
                                 case IGNORE ->
                                     LOGGER.log(Level.INFO,
                                             MessageFormat.format("{0} - Received IGNORE message from {1}",
+                                                    config.getId(), message.getSenderId()));
+                                
+                                case CLIENT_CONFIRMATION ->
+                                    LOGGER.log(Level.INFO,
+                                            MessageFormat.format("{0} - Received CLIENT_CONFIRMATION message from {1}",
                                                     config.getId(), message.getSenderId()));
 
                                 default ->
