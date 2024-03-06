@@ -29,6 +29,8 @@ public class Link {
     private final DatagramSocket socket;
     // Map of all nodes in the network
     private final Map<String, ProcessConfig> nodes = new ConcurrentHashMap<>();
+    private final Map<String, ProcessConfig> clients = new ConcurrentHashMap<>();
+
     // Reference to the node itself
     private final ProcessConfig config;
     // Class to deserialize messages to
@@ -42,11 +44,13 @@ public class Link {
     // Send messages to self by pushing to queue instead of through the network
     private final Queue<Message> localhostQueue = new ConcurrentLinkedQueue<>();
 
-    public Link(ProcessConfig self, int port, ProcessConfig[] nodes, Class<? extends Message> messageClass) {
+    public Link(ProcessConfig self, int port, ProcessConfig[] nodes,
+            Class<? extends Message> messageClass) {
         this(self, port, nodes, messageClass, false, 200);
     }
 
-    public Link(ProcessConfig self, int port, ProcessConfig[] nodes, Class<? extends Message> messageClass,
+    public Link(ProcessConfig self, int port, ProcessConfig[] nodes,
+            Class<? extends Message> messageClass,
             boolean activateLogs, int baseSleepTime) {
 
         this.config = self;
@@ -73,6 +77,14 @@ public class Link {
         receivedAcks.addAll(messageIds);
     }
 
+    public void addClient(ProcessConfig[] clients) {
+        Arrays.stream(clients).forEach(client -> {
+            String id = client.getId();
+            this.clients.put(id, client);
+            receivedMessages.put(id, new CollapsingSet());
+        });
+    }
+
     /*
      * Broadcasts a message to all nodes in the network
      *
@@ -97,6 +109,9 @@ public class Link {
         new Thread(() -> {
             try {
                 ProcessConfig node = nodes.get(nodeId);
+                if (node == null) {
+                    node = clients.get(nodeId);
+                }
                 if (node == null)
                     throw new HDSSException(ErrorMessage.NoSuchNode);
 
@@ -121,11 +136,9 @@ public class Link {
                 }
 
                 for (;;) {
-                    System.out.println("Sending message to " + nodeId + " " + data.getType());// ! remove
                     LOGGER.log(Level.INFO, MessageFormat.format(
                             "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
-                            data.getType(), destAddress, destPort, messageId, count++)); // ! this does not appear in
-                                                                                         // the cli
+                            data.getType(), destAddress, destPort, messageId, count++));
 
                     authenticatedSend(destAddress, destPort, data);
 
@@ -133,7 +146,6 @@ public class Link {
                     Thread.sleep(sleepTime);
 
                     // Receive method will set receivedAcks when sees corresponding ACK
-                    // ! signature fine now, but no ack received
                     if (receivedAcks.contains(messageId))
                         break;
 
@@ -177,7 +189,6 @@ public class Link {
         System.arraycopy(signature, 0, newArray, buf.length, 128);
 
         // Send message
-        System.out.println("Fine until here"); // ! remove
         unreliableSend(hostname, port, newArray);
     }
 
@@ -230,7 +241,6 @@ public class Link {
      */
     public Message receive() throws IOException, ClassNotFoundException {
 
-        System.out.println("Received a message");
         Message message = null;
         String serialized = "";
         Boolean local = false;
