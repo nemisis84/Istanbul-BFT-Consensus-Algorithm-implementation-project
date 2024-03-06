@@ -126,11 +126,9 @@ public class NodeService implements UDPService {
         int localConsensusInstance = this.consensusInstance.get();
         InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
         for (ProcessConfig node : nodesConfig) {
-            if (Integer.parseInt(node.getId()) == instance.getCurrentRound()%nodesConfig.length) {
+            if ((Integer.parseInt(node.getId())-1) == (instance.getCurrentRound()-1)%nodesConfig.length) {
                 node.setleader(true);
                 this.leaderConfig = node;
-                System.out.println("----------------------------------- \nUpdating leader to \n" + node.getId());
-
             } else {
                 node.setleader(false);
             }
@@ -436,6 +434,8 @@ public class NodeService implements UDPService {
                 consensusInstance, round);
 
         if (commitValue.isPresent() && instance.getCommittedRound() < round) {
+
+            cancelTimer();
 
             instance = this.instanceInfo.get(consensusInstance);
             instance.setCommittedRound(round);
