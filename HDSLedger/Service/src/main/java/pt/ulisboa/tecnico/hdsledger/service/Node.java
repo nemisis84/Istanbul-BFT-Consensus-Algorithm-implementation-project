@@ -41,9 +41,17 @@ public class Node {
             NodeService nodeService = new NodeService(linkToNodes, nodeConfig, leaderConfig,
                     nodeConfigs);
 
+            if (nodeConfig.getId().equals("2") || nodeConfig.getId().equals("3")) {
+                return;
+            }
+
+            if (nodeConfig.getId().equals("1") || nodeConfig.getId().equals("4")) {
+                nodeService.startConsensus("a");
+            }
+            
             nodeService.listen();
-            Message message = new Message(nodeConfig.getId() ,Message.Type.APPEND);
-            nodeService.sendTestMessage("4", message);
+
+
             
         } catch (Exception e) {
             e.printStackTrace();

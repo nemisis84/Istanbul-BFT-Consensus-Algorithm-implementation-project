@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -16,6 +18,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.communication.PrePrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.PrepareMessage;
+import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.builder.ConsensusMessageBuilder;
 import pt.ulisboa.tecnico.hdsledger.service.models.InstanceInfo;
 import pt.ulisboa.tecnico.hdsledger.service.models.MessageBucket;
@@ -97,6 +100,35 @@ public class NodeService implements UDPService {
         return consensusMessage;
     }
 
+
+    public void startChangeRound() {
+        int localConsensusInstance = this.consensusInstance.get();
+        InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
+
+        instance.setCurrentRound(instance.getCurrentRound()+1);
+
+        RoundChangeMessage message = new RoundChangeMessage(config.getId(), Message.Type.ROUND_CHANGE, localConsensusInstance, instance.getCurrentRound(),instance.getPreparedRound(), instance.getPreparedValue());
+
+        this.link.broadcast(message);
+    }
+
+
+    private void startTimer() {
+        TimerTask task = new TimerTask() {
+            @Override
+            public void run()  {
+                System.out.println("Task timed out!");
+                startChangeRound();
+            }
+        };
+
+        Timer timer = new Timer(true); // Daemon thread
+        timer.schedule(task, 1000); // 1000 milliseconds = 1 second
+    }
+
+
+
+
     /*
      * Start an instance of consensus for a value
      * Only the current leader will start a consensus instance
@@ -137,6 +169,8 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO,
                     MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
         }
+
+        startTimer();
     }
 
     /*
@@ -355,6 +389,8 @@ public class NodeService implements UDPService {
                         // non verified messages
                         if (message == null) return;
 
+                        System.out.println("Receiving " + message.getType());
+
                         // Separate thread to handle each message
                         new Thread(() -> {
 
@@ -370,6 +406,9 @@ public class NodeService implements UDPService {
 
                                 case COMMIT ->
                                     uponCommit((ConsensusMessage) message);
+
+                                case ROUND_CHANGE ->
+                                    System.out.println((RoundChangeMessage) message);
 
 
                                 case ACK ->

@@ -212,10 +212,8 @@ public class Link {
             sig.initVerify(senderPubKey);
             sig.update(data);
             if (!sig.verify(signature)) {
-                System.out.println("Signature is incorrect.");
                 return false;
             } else {
-                System.out.println("Signature verified!");
                 return true;
             }
          
@@ -229,8 +227,6 @@ public class Link {
      * Receives a message from any node in the network (blocking)
      */
     public Message receive() throws IOException, ClassNotFoundException {
-
-        System.out.println("Received a message");
         Message message = null;
         String serialized = "";
         Boolean local = false;
@@ -278,9 +274,15 @@ public class Link {
             return message;
         }
 
-        // It's not an ACK -> Deserialize for the correct type
+        // Deserialize for the correct type
         if (!local)
-            message = new Gson().fromJson(serialized, this.messageClass);
+            if (message.getType().equals(Message.Type.ROUND_CHANGE)) {
+                message = new Gson().fromJson(serialized, RoundChangeMessage.class);
+            }
+            
+            else {
+                message = new Gson().fromJson(serialized, this.messageClass);
+            }
 
         boolean isRepeated = !receivedMessages.get(message.getSenderId()).add(messageId);
         Type originalType = message.getType();
@@ -309,6 +311,11 @@ public class Link {
                 if (consensusMessage.getReplyTo() != null && consensusMessage.getReplyTo().equals(config.getId()))
                     receivedAcks.add(consensusMessage.getReplyToMessageId());
             }
+
+            case ROUND_CHANGE -> {
+                return message;
+            }
+
             default -> {}
         }
 
