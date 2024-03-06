@@ -13,8 +13,6 @@ public class RoundChangeMessage extends Message {
 
     private String prepared_value;
     
-
-
     public RoundChangeMessage(String senderId, Type type, int consensusInstance, int round, int prepared_round, String prepared_value) {
         super(senderId, type);
         this.consensusInstance = consensusInstance;
