@@ -1,0 +1,8 @@
+[
+    {
+        "id": "client1",
+        "isleader": false,
+        "hostname": "localhost",
+        "port": 3005
+    }
+]

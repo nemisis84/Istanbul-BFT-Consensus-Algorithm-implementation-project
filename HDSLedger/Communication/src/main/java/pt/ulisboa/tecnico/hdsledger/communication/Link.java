@@ -7,7 +7,6 @@ import pt.ulisboa.tecnico.hdsledger.utilities.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.*;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -29,6 +28,8 @@ public class Link {
     private final DatagramSocket socket;
     // Map of all nodes in the network
     private final Map<String, ProcessConfig> nodes = new ConcurrentHashMap<>();
+    private final Map<String, ProcessConfig> clients = new ConcurrentHashMap<>();
+
     // Reference to the node itself
     private final ProcessConfig config;
     // Class to deserialize messages to
@@ -42,11 +43,13 @@ public class Link {
     // Send messages to self by pushing to queue instead of through the network
     private final Queue<Message> localhostQueue = new ConcurrentLinkedQueue<>();
 
-    public Link(ProcessConfig self, int port, ProcessConfig[] nodes, Class<? extends Message> messageClass) {
+    public Link(ProcessConfig self, int port, ProcessConfig[] nodes,
+            Class<? extends Message> messageClass) {
         this(self, port, nodes, messageClass, false, 200);
     }
 
-    public Link(ProcessConfig self, int port, ProcessConfig[] nodes, Class<? extends Message> messageClass,
+    public Link(ProcessConfig self, int port, ProcessConfig[] nodes,
+            Class<? extends Message> messageClass,
             boolean activateLogs, int baseSleepTime) {
 
         this.config = self;
@@ -73,6 +76,14 @@ public class Link {
         receivedAcks.addAll(messageIds);
     }
 
+    public void addClient(ProcessConfig[] clients) {
+        Arrays.stream(clients).forEach(client -> {
+            String id = client.getId();
+            this.clients.put(id, client);
+            receivedMessages.put(id, new CollapsingSet());
+        });
+    }
+
     /*
      * Broadcasts a message to all nodes in the network
      *
@@ -97,6 +108,9 @@ public class Link {
         new Thread(() -> {
             try {
                 ProcessConfig node = nodes.get(nodeId);
+                if (node == null) {
+                    node = clients.get(nodeId);
+                }
                 if (node == null)
                     throw new HDSSException(ErrorMessage.NoSuchNode);
 
@@ -147,9 +161,8 @@ public class Link {
         }).start();
     }
 
-
     // Create digital signature with sender node private key
-    public byte[] sign(byte[] data) throws Exception {   
+    public byte[] sign(byte[] data) throws Exception {
         Signature sig = Signature.getInstance("SHA256withRSA");
         PrivateKey key = this.config.getPrivateKey();
 
@@ -159,7 +172,6 @@ public class Link {
         return signature;
     }
 
-
     // Send message signed with digital signature
     public void authenticatedSend(InetAddress hostname, int port, Message data) {
         byte[] buf = new Gson().toJson(data).getBytes();
@@ -168,6 +180,7 @@ public class Link {
         try {
             signature = sign(buf);
         } catch (Exception e) {
+            System.out.println("Error signing message");
             return;
         }
 
@@ -232,9 +245,10 @@ public class Link {
         Boolean local = false;
         DatagramPacket response = null;
 
+
         if (this.localhostQueue.size() > 0) {
             message = this.localhostQueue.poll();
-            local = true; 
+            local = true;
             this.receivedAcks.add(message.getMessageId());
         } else {
             byte[] buf = new byte[65535];
@@ -262,7 +276,7 @@ public class Link {
         String senderId = message.getSenderId();
         int messageId = message.getMessageId();
 
-        if (!nodes.containsKey(senderId))
+        if (!nodes.containsKey(senderId) && !senderId.contains("client"))
             throw new HDSSException(ErrorMessage.NoSuchNode);
         
  
@@ -333,7 +347,7 @@ public class Link {
             // it will discard duplicates
             authenticatedSend(address, port, responseMessage);
         }
-        
+
         return message;
     }
 }

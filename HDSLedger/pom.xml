@@ -12,6 +12,6 @@
         <module>Service</module>
         <module>Utilities</module>
         <module>Communication</module>
+        <module>Client</module>
     </modules>
-
 </project>

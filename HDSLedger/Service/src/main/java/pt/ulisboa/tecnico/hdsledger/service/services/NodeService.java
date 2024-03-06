@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.service.services;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -56,6 +57,9 @@ public class NodeService implements UDPService {
     // Ledger (for now, just a list of strings)
     private ArrayList<String> ledger = new ArrayList<String>();
 
+    // Client requests
+    private String clientRequestID;
+
     public NodeService(Link link, ProcessConfig config,
             ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) {
 
@@ -68,9 +72,14 @@ public class NodeService implements UDPService {
         this.commitMessages = new MessageBucket(nodesConfig.length);
     }
 
-    public void sendTestMessage(String nodeId, Message message){
+    public void sendTestMessage(String nodeId, Message message) {
         link.send(nodeId, message);
     }
+
+    public void sendClientMessage(Message message) {
+        link.broadcast(message);
+    }
+
 
     public ProcessConfig getConfig() {
         return this.config;
@@ -87,7 +96,7 @@ public class NodeService implements UDPService {
     private boolean isLeader(String id) {
         return this.leaderConfig.getId().equals(id);
     }
- 
+
     public ConsensusMessage createConsensusMessage(String value, int instance, int round) {
         PrePrepareMessage prePrepareMessage = new PrePrepareMessage(value);
 
@@ -163,7 +172,7 @@ public class NodeService implements UDPService {
         if (this.config.isLeader()) {
             InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
             LOGGER.log(Level.INFO,
-                MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
+                    MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
             this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
         } else {
             LOGGER.log(Level.INFO,
@@ -277,7 +286,8 @@ public class NodeService implements UDPService {
         }
 
         // Find value with valid quorum
-        Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), consensusInstance, round);
+        Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), consensusInstance,
+                round);
         if (preparedValue.isPresent() && instance.getPreparedRound() < round) {
             instance.setPreparedValue(preparedValue.get());
             instance.setPreparedRound(round);
@@ -303,8 +313,6 @@ public class NodeService implements UDPService {
         }
     }
 
-
-
     /*
      * Handle commit messages and decide if there is a valid quorum
      *
@@ -324,7 +332,8 @@ public class NodeService implements UDPService {
         InstanceInfo instance = this.instanceInfo.get(consensusInstance);
 
         if (instance == null) {
-            // Should never happen because only receives commit as a response to a prepare message
+            // Should never happen because only receives commit as a response to a prepare
+            // message
             MessageFormat.format(
                     "{0} - CRITICAL: Received COMMIT message from {1}: Consensus Instance {2}, Round {3} BUT NO INSTANCE INFO",
                     config.getId(), message.getSenderId(), consensusInstance, round);
@@ -352,20 +361,20 @@ public class NodeService implements UDPService {
             String value = commitValue.get();
 
             // Append value to the ledger (must be synchronized to be thread-safe)
-            synchronized(ledger) {
+            synchronized (ledger) {
 
                 // Increment size of ledger to accommodate current instance
                 ledger.ensureCapacity(consensusInstance);
                 while (ledger.size() < consensusInstance - 1) {
                     ledger.add("");
                 }
-                
+
                 ledger.add(consensusInstance - 1, value);
-                
+
                 LOGGER.log(Level.INFO,
-                    MessageFormat.format(
-                            "{0} - Current Ledger: {1}",
-                            config.getId(), String.join("", ledger)));
+                        MessageFormat.format(
+                                "{0} - Current Ledger: {1}",
+                                config.getId(), String.join("", ledger)));
             }
 
             lastDecidedConsensusInstance.getAndIncrement();
@@ -374,7 +383,26 @@ public class NodeService implements UDPService {
                     MessageFormat.format(
                             "{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
                             config.getId(), consensusInstance, round, true));
+            if (this.config.isLeader()) {
+                // TODO: Modify this such that the client that sends the request to the server
+                // application gets the answer
+                // What if the leader gets changes during the round?
+                // What if multiple client requests are handled asynchrounously.
+                Message confirmationMessage = new Message(config.getId(), Message.Type.CLIENT_CONFIRMATION);
+                confirmationMessage.setValue(message.getValue());
+                link.send(clientRequestID, confirmationMessage);
+                System.out.println(message.getSenderId());
+                System.out.println(config.getId());
+            }
         }
+    }
+
+    public void handleClientRequest(Message message) {
+        if (this.config.isLeader()) {
+            this.startConsensus(message.getValue());
+        } 
+        // This should maybe 
+        this.clientRequestID = message.getSenderId();
     }
 
     @Override
@@ -383,6 +411,9 @@ public class NodeService implements UDPService {
             // Thread to listen on every request
             new Thread(() -> {
                 try {
+                    System.out.println(
+                            "Listening on " + InetAddress.getLocalHost().getHostAddress() + ":" + config.getPort());
+                    // remove
                     while (true) {
                         Message message = link.receive();
 
@@ -391,18 +422,29 @@ public class NodeService implements UDPService {
 
                         System.out.println("Receiving " + message.getType());
 
+                        // non verified messages
+                        if (message == null) return;
+
+                        System.out.println("Receiving " + message.getType());
+
+                        // non verified messages
+                        if (message == null)
+                            return;
+
                         // Separate thread to handle each message
                         new Thread(() -> {
 
                             switch (message.getType()) {
 
+                                case APPEND -> {
+                                    this.handleClientRequest(message);
+                                }
+
                                 case PRE_PREPARE ->
                                     uponPrePrepare((ConsensusMessage) message);
 
-
                                 case PREPARE ->
                                     uponPrepare((ConsensusMessage) message);
-
 
                                 case COMMIT ->
                                     uponCommit((ConsensusMessage) message);
@@ -418,6 +460,11 @@ public class NodeService implements UDPService {
                                 case IGNORE ->
                                     LOGGER.log(Level.INFO,
                                             MessageFormat.format("{0} - Received IGNORE message from {1}",
+                                                    config.getId(), message.getSenderId()));
+                                
+                                case CLIENT_CONFIRMATION ->
+                                    LOGGER.log(Level.INFO,
+                                            MessageFormat.format("{0} - Received CLIENT_CONFIRMATION message from {1}",
                                                     config.getId(), message.getSenderId()));
 
                                 default ->
