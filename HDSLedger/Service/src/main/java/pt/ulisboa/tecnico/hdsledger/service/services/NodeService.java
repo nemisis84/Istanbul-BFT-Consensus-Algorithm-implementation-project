@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
@@ -165,15 +166,33 @@ public class NodeService implements UDPService {
         int quorum = Math.floorDiv(nodesConfig.length + f, 2) + 1;
 
         if (numMessages >=  quorum && this.config.isLeader()) {
+
+            // This is not working
+            RoundChangeMessage highestPrepared =
+                roundChangeMessages.stream().
+                filter(entry -> entry.getConsensusInstance() == localConsensusInstance).filter(entry -> entry.getRound() == instance.getCurrentRound()).
+                max(Comparator.comparingInt(entry -> entry.getPreparedRound())).orElse(null);
+
+            String value;
+
+            if (highestPrepared.getPreparedRound()==-1) {
+                value = this.inputValue;
+            } else {
+                value = highestPrepared.getPreparedValue();
+            }
+            
+
              // Leader broadcasts PRE-PREPARE message
             if (this.config.isLeader()) {
                 LOGGER.log(Level.INFO,
                         MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
-                this.link.broadcast(this.createConsensusMessage(this.inputValue, localConsensusInstance, instance.getCurrentRound()));
+                this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
             } else {
                 LOGGER.log(Level.INFO,
                         MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
             }
+
+            startTimer();
         }
 
         numMessages = (int) roundChangeMessages.stream().
