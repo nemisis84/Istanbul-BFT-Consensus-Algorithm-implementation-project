@@ -24,6 +24,10 @@ public class ProcessConfig {
         return isLeader;
     }
 
+    public void setleader(boolean isLeader) {
+        this.isLeader = isLeader;
+    }
+
     public int getPort() {
         return port;
     }

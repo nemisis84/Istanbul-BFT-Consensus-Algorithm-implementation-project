@@ -7,7 +7,6 @@ import pt.ulisboa.tecnico.hdsledger.utilities.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.*;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -89,7 +88,7 @@ public class Link {
      * Broadcasts a message to all nodes in the network
      *
      * @param data The message to be broadcasted
-     */
+     */ 
     public void broadcast(Message data) {
         Gson gson = new Gson();
         nodes.forEach((destId, dest) -> send(destId, gson.fromJson(gson.toJson(data), data.getClass())));
@@ -134,6 +133,8 @@ public class Link {
 
                     return;
                 }
+
+                
 
                 for (;;) {
                     LOGGER.log(Level.INFO, MessageFormat.format(
@@ -224,27 +225,26 @@ public class Link {
             sig.initVerify(senderPubKey);
             sig.update(data);
             if (!sig.verify(signature)) {
-                System.out.println("Signature is incorrect.");
                 return false;
             } else {
-                System.out.println("Signature verified!");
                 return true;
             }
-
+         
         } catch (Exception e) {
             return false;
         }
     }
 
+
     /*
      * Receives a message from any node in the network (blocking)
      */
     public Message receive() throws IOException, ClassNotFoundException {
-
         Message message = null;
         String serialized = "";
         Boolean local = false;
         DatagramPacket response = null;
+
 
         if (this.localhostQueue.size() > 0) {
             message = this.localhostQueue.poll();
@@ -259,11 +259,11 @@ public class Link {
             byte[] buffer = Arrays.copyOfRange(response.getData(), 0, response.getLength());
 
             // Split message into message and signature
-            byte[] m = new byte[buffer.length - 128];
+            byte[] m = new byte[buffer.length-128];
             byte[] signature = new byte[128];
-            System.arraycopy(buffer, 0, m, 0, buffer.length - 128);
-            System.arraycopy(buffer, buffer.length - 128, signature, 0, 128);
-
+            System.arraycopy(buffer, 0, m, 0, buffer.length-128);
+            System.arraycopy(buffer, buffer.length-128, signature, 0, 128);
+            
             serialized = new String(m);
             message = new Gson().fromJson(serialized, Message.class);
 
@@ -278,7 +278,8 @@ public class Link {
 
         if (!nodes.containsKey(senderId) && !senderId.contains("client"))
             throw new HDSSException(ErrorMessage.NoSuchNode);
-
+        
+ 
         // Handle ACKS, since it's possible to receive multiple acks from the same
 
         // message
@@ -287,15 +288,18 @@ public class Link {
             return message;
         }
 
-        // It's not an ACK -> Deserialize for the correct type
+        // Deserialize for the correct type
         if (!local)
-            if (message.getType().equals(Message.Type.APPEND) || message.getType().equals(Message.Type.CLIENT_CONFIRMATION)){
+            if (message.getType().equals(Message.Type.ROUND_CHANGE)) {
+                message = new Gson().fromJson(serialized, RoundChangeMessage.class);
+            }
+            else if (message.getType().equals(Message.Type.APPEND) || message.getType().equals(Message.Type.CLIENT_CONFIRMATION)){
                 message = new Gson().fromJson(serialized, ClientMessage.class);
             }
-            else{
+
+            else {
                 message = new Gson().fromJson(serialized, this.messageClass);
             }
-
 
         boolean isRepeated = !receivedMessages.get(message.getSenderId()).add(messageId);
         Type originalType = message.getType();
@@ -324,8 +328,13 @@ public class Link {
                 if (consensusMessage.getReplyTo() != null && consensusMessage.getReplyTo().equals(config.getId()))
                     receivedAcks.add(consensusMessage.getReplyToMessageId());
             }
-            default -> {
+
+            case ROUND_CHANGE -> {
+                // Do nothing because we need to send ack and will return message later
+                ;
             }
+
+            default -> {}
         }
 
         // Send ack
@@ -335,6 +344,8 @@ public class Link {
 
             Message responseMessage = new Message(this.config.getId(), Message.Type.ACK);
             responseMessage.setMessageId(messageId);
+
+            System.out.println("Sending ack for " + messageId);
 
             // ACK is sent without needing for another ACK because
             // we're assuming an eventually synchronous network

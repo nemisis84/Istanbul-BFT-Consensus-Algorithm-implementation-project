@@ -5,6 +5,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
+import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
@@ -47,6 +48,10 @@ public class Node {
             NodeService nodeService = new NodeService(linkToNodes, nodeConfig, leaderConfig,
                     nodeConfigs);
 
+            if (nodeConfig.isLeader())
+                return;
+            
+            
             nodeService.listen();
 
             ClientMessage message = new ClientMessage(nodeConfig.getId(), Message.Type.APPEND);
