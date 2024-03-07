@@ -71,6 +71,11 @@ public class NodeService implements UDPService {
 
     private String inputValue;
 
+    // if the rules have been done already
+    private boolean rule1 = false;
+
+    private boolean rule2 = false;
+
     public NodeService(Link link, ProcessConfig config,
             ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) {
 
@@ -165,9 +170,9 @@ public class NodeService implements UDPService {
         int f = Math.floorDiv(nodesConfig.length - 1, 3);
         int quorum = Math.floorDiv(nodesConfig.length + f, 2) + 1;
 
-        if (numMessages >=  quorum && this.config.isLeader()) {
-
-            // This is not working
+        if (numMessages >=  quorum && this.config.isLeader() && !this.rule1) {
+            System.out.println("Rule 1");
+            this.rule1 = true;
             RoundChangeMessage highestPrepared =
                 roundChangeMessages.stream().
                 filter(entry -> entry.getConsensusInstance() == localConsensusInstance).filter(entry -> entry.getRound() == instance.getCurrentRound()).
@@ -177,20 +182,17 @@ public class NodeService implements UDPService {
 
             if (highestPrepared.getPreparedRound()==-1) {
                 value = this.inputValue;
+
             } else {
                 value = highestPrepared.getPreparedValue();
             }
             
 
              // Leader broadcasts PRE-PREPARE message
-            if (this.config.isLeader()) {
-                LOGGER.log(Level.INFO,
-                        MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
-                this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
-            } else {
-                LOGGER.log(Level.INFO,
-                        MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
-            }
+            
+            LOGGER.log(Level.INFO,
+                    MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
+            this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
 
             startTimer();
         }
@@ -198,7 +200,10 @@ public class NodeService implements UDPService {
         numMessages = (int) roundChangeMessages.stream().
             filter(entry -> entry.getConsensusInstance() == localConsensusInstance).filter(entry -> entry.getRound() > instance.getCurrentRound()).count();
         // Received f+1 round_change 
-        if (numMessages > (Math.floorDiv(nodesConfig.length - 1, 3)+1)) {
+        if (numMessages > (Math.floorDiv(nodesConfig.length - 1, 3)+1) && !this.rule2) {
+            System.out.println("Rule 2");
+            this.rule2 = true;
+            
             updateLeader();
 
             int newRound = roundChangeMessages.stream().filter(entry -> entry.getConsensusInstance() == localConsensusInstance)
@@ -267,7 +272,9 @@ public class NodeService implements UDPService {
             }
         }
 
-        startTimer();
+        this.rule1 = false;
+        this.rule2 = false;
+
 
         // Leader broadcasts PRE-PREPARE message
         if (this.config.isLeader()) {
@@ -279,6 +286,8 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO,
                     MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
         }
+
+        startTimer();
     }
 
     /*
@@ -492,8 +501,6 @@ public class NodeService implements UDPService {
                 Message confirmationMessage = new Message(config.getId(), Message.Type.CLIENT_CONFIRMATION);
                 confirmationMessage.setValue(message.getValue());
                 link.send(clientRequestID, confirmationMessage);
-                System.out.println(message.getSenderId());
-                System.out.println(config.getId());
             }
         }
     }
