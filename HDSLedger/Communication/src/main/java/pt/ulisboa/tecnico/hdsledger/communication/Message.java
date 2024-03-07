@@ -10,8 +10,6 @@ public class Message implements Serializable {
     private int messageId;
     // Message type
     private Type type;
-    // Message value
-    private String value;
 
     public enum Type {
         APPEND, CLIENT_CONFIRMATION, PRE_PREPARE, PREPARE, COMMIT, ACK, IGNORE;
@@ -44,13 +42,5 @@ public class Message implements Serializable {
 
     public void setType(Type type) {
         this.type = type;
-    }
-
-    public void setValue(String value){
-        this.value = value;
-    }
-
-    public String getValue(){
-        return this.value;
     }
 }

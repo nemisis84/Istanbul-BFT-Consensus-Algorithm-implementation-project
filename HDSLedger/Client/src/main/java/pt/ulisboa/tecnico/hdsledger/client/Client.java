@@ -4,6 +4,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.service.Node;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
+import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfigBuilder;
@@ -72,9 +73,9 @@ public class Client {
                         // Extract the payload from the user input
                         String payload = userCommand.substring("append".length()).trim();
                         // Send the message to nodes
-                        Message message = new Message(clientConfig.getId(), Message.Type.APPEND);
-                        message.setValue(payload);
-                        nodeService.sendClientMessage(message);
+                        ClientMessage appendMessage = new ClientMessage(clientConfig.getId(), Message.Type.APPEND);
+                        appendMessage.setValue(payload);
+                        nodeService.sendClientMessage(appendMessage);
                         break;
                     case "quit":
                         // Handle other commands as needed

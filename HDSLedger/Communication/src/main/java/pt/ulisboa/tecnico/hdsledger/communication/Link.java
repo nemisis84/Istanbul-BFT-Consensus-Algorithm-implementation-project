@@ -289,7 +289,13 @@ public class Link {
 
         // It's not an ACK -> Deserialize for the correct type
         if (!local)
-            message = new Gson().fromJson(serialized, this.messageClass);
+            if (message.getType().equals(Message.Type.APPEND) || message.getType().equals(Message.Type.CLIENT_CONFIRMATION)){
+                message = new Gson().fromJson(serialized, ClientMessage.class);
+            }
+            else{
+                message = new Gson().fromJson(serialized, this.messageClass);
+            }
+
 
         boolean isRepeated = !receivedMessages.get(message.getSenderId()).add(messageId);
         Type originalType = message.getType();
