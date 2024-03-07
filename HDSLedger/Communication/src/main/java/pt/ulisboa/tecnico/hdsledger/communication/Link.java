@@ -327,7 +327,8 @@ public class Link {
             }
 
             case ROUND_CHANGE -> {
-                return message;
+                // Do nothing because we need to send ack and will return message later
+                ;
             }
 
             default -> {}
@@ -340,6 +341,8 @@ public class Link {
 
             Message responseMessage = new Message(this.config.getId(), Message.Type.ACK);
             responseMessage.setMessageId(messageId);
+
+            System.out.println("Sending ack for " + messageId);
 
             // ACK is sent without needing for another ACK because
             // we're assuming an eventually synchronous network

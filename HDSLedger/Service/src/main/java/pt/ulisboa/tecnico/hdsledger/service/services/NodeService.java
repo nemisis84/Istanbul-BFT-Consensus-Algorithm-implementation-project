@@ -149,7 +149,6 @@ public class NodeService implements UDPService {
         instance.setCurrentRound(instance.getCurrentRound()+1);
 
         RoundChangeMessage message = new RoundChangeMessage(config.getId(), Message.Type.ROUND_CHANGE, localConsensusInstance, instance.getCurrentRound(),instance.getPreparedRound(), instance.getPreparedValue());
-
         this.link.broadcast(message);
 
         startTimer();
@@ -163,6 +162,11 @@ public class NodeService implements UDPService {
         int localConsensusInstance = this.consensusInstance.get();
         InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
 
+        LOGGER.log(Level.INFO,
+                MessageFormat.format(
+                        "{0} - Received ROUND_CHANGE message from {1} Consensus Instance {2}, Round {3}",
+                        config.getId(), message.getSenderId(), message.getConsensusInstance(), message.getRound()));
+
         // Received quorum of ROUND_CHANGE
         int numMessages = (int) roundChangeMessages.stream().
         filter(entry -> entry.getConsensusInstance() == localConsensusInstance).filter(entry -> entry.getRound() == instance.getCurrentRound()).count();
@@ -171,7 +175,6 @@ public class NodeService implements UDPService {
         int quorum = Math.floorDiv(nodesConfig.length + f, 2) + 1;
 
         if (numMessages >=  quorum && this.config.isLeader() && !this.rule1) {
-            System.out.println("Rule 1");
             this.rule1 = true;
             RoundChangeMessage highestPrepared =
                 roundChangeMessages.stream().
