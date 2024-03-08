@@ -1,34 +1,24 @@
-import pt.ulisboa.tecnico.hdsledger.service.Node;
+package pt.ulisboa.tecnico.hdsledges.service.services;
 
-import org.mockito.Mockito;
 import org.mockito.Mock;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.mockito.InjectMocks;
 import static org.mockito.Mockito.times;
 import org.mockito.MockitoAnnotations;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.verifyNoInteractions;
-
-import java.beans.Transient;
 import java.util.Arrays;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-import static org.mockito.Mockito.atLeastOnce;
-
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfigBuilder;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
-import pt.ulisboa.tecnico.hdsledger.service.models.InstanceInfo;
 import pt.ulisboa.tecnico.hdsledger.communication.PrePrepareMessage;
-import pt.ulisboa.tecnico.hdsledger.communication.PrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
 

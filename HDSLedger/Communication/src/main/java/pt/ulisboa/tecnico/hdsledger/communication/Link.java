@@ -5,7 +5,6 @@ import com.google.gson.Gson;
 import pt.ulisboa.tecnico.hdsledger.communication.Message.Type;
 import pt.ulisboa.tecnico.hdsledger.utilities.*;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.*;
 import java.security.PrivateKey;

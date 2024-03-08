@@ -2,13 +2,11 @@ package pt.ulisboa.tecnico.hdsledger.client;
 
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
-import pt.ulisboa.tecnico.hdsledger.service.Node;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfigBuilder;
-import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 
 import java.text.MessageFormat;
@@ -17,12 +15,6 @@ import java.util.Arrays;
 import java.util.Scanner;
 import java.io.InputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.net.DatagramSocket;
-import java.net.DatagramPacket;
-import java.net.UnknownHostException;
-import java.net.SocketException;
-import java.net.InetAddress;
 
 public class Client {
     private static final CustomLogger LOGGER = new CustomLogger("Client");
