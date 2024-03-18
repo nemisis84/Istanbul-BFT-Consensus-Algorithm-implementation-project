@@ -29,7 +29,7 @@ public class ClientMessageBuilder {
         clientData.setRequestID(this.clientRequest.getAndIncrement());
         
         try{
-            byte[] signature = Authenticate.signMessage(this.privateKey, senderID);
+            byte[] signature = Authenticate.signMessage(this.privateKey, payload);
             clientData.setSignature(signature);
         } catch (Exception e) {
             System.out.println("Error signing value");

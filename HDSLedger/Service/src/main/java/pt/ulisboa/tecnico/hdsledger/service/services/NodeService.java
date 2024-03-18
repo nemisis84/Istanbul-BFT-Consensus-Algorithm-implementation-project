@@ -78,9 +78,9 @@ public class NodeService implements UDPService {
 
     private Map<Integer, ClientData> consensusToDataMapping = new ConcurrentHashMap<>(); 
 
-    private String clientRequestID;
+    // private String clientRequestID;
 
-    private String inputValue;
+    // private String inputValue;
 
     // if the rules have been done already
     private boolean rule1 = false;
@@ -206,7 +206,7 @@ public class NodeService implements UDPService {
             String value;
 
             if (highestPrepared.getPreparedRound() == -1) {
-                value = this.inputValue;
+                value = this.consensusToDataMapping.get(localConsensusInstance).getValue();
 
             } else {
                 value = highestPrepared.getPreparedValue();
@@ -275,10 +275,6 @@ public class NodeService implements UDPService {
      * @param inputValue Value to value agreed upon
      */
     public void startConsensus(ClientData clientData) {
-        
-        this.verifyClientData(clientData);
-
-        this.inputValue = clientData.getValue();
 
         // Set initial consensus values
         int localConsensusInstance = getConsensusInstance().incrementAndGet();
@@ -432,7 +428,9 @@ public class NodeService implements UDPService {
             // Must reply to prepare message senders
             Collection<ConsensusMessage> sendersMessage = prepareMessages.getMessages(consensusInstance, round)
                     .values();
-
+            if (!this.verifyClientData(clientData)){
+                return;
+            }
             CommitMessage c = new CommitMessage(preparedValue.get());
             instance.setCommitMessage(c);
 
@@ -503,7 +501,6 @@ public class NodeService implements UDPService {
             ClientData clientData = this.consensusToDataMapping.get(consensusInstance);
             
 
-            this.verifyClientData(clientData);
             // Check if this client request is up next
             while (!clientRequestQueue.isEmpty()) {
                 // Peek at the next client request without removing it from the queue
@@ -552,15 +549,15 @@ public class NodeService implements UDPService {
 
             ClientMessage confirmationMessage = new ClientMessage(config.getId(), Message.Type.CLIENT_CONFIRMATION);
             confirmationMessage.setClientData(clientData);
-            link.send(clientRequestID, confirmationMessage);
+            link.send(clientData.getClientID(), confirmationMessage);
         }
     }
 
     public boolean verifyClientData(ClientData clientData){
         byte [] signature = clientData.getSignature();
-        this.inputValue = clientData.getValue();
+        String value = clientData.getValue();
         try {
-            if (Authenticate.verifyMessage(config.getNodePubKey(clientData.getClientID()), inputValue, signature)){
+            if (Authenticate.verifyMessage(config.getNodePubKey(clientData.getClientID()), value, signature)){
                 return true;
             }
         } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException e) {
@@ -574,12 +571,11 @@ public class NodeService implements UDPService {
     public void handleClientRequest(ClientMessage message) {
 
         ClientData clientData = message.getClientData();
+        if (!this.verifyClientData(clientData)){
+            return;
+        }
         clientRequestQueue.offer(clientData);
         this.startConsensus(clientData);
-
-
-        // To be removed
-        this.clientRequestID = message.getSenderId();
     }
 
     @Override
