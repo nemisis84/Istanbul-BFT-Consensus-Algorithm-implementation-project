@@ -24,6 +24,7 @@ def quit_handler(*args):
 
 
 # Compile classes
+os.system("mvn clean compile")
 os.system("mvn clean install")
 
 # Spawn blockchain nodes

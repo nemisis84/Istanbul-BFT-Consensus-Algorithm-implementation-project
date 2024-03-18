@@ -103,7 +103,7 @@ public class NodeServiceTest {
         // Mock that sender is leader
         when(mockConsensusMessage.getSenderId()).thenReturn(leaderId);
         when(mockConsensusMessage.deserializePrePrepareMessage()).thenReturn(mockPrePrepareMessage);
-        when(mockPrePrepareMessage.getValue()).thenReturn("val");
+        when(mockPrePrepareMessage.getClientData().getValue()).thenReturn("val");
         // Call method
         leaderNodeService.uponPrePrepare(mockConsensusMessage);
 
@@ -125,7 +125,7 @@ public class NodeServiceTest {
         // Mock that sender is not leader
         when(mockConsensusMessage.getSenderId()).thenReturn(nodeId);
         when(mockConsensusMessage.deserializePrePrepareMessage()).thenReturn(mockPrePrepareMessage);
-        when(mockPrePrepareMessage.getValue()).thenReturn("val");
+        when(mockPrePrepareMessage.getClientData().getValue()).thenReturn("val");
 
         // Call method
         nodeService.uponPrePrepare(mockConsensusMessage);
@@ -140,7 +140,7 @@ public class NodeServiceTest {
     @Test
     public void testHandleClientRequestLeader() {
         when(mockClientMessage.getSenderId()).thenReturn(clientId);
-        when(mockClientMessage.getValue()).thenReturn("val");
+        when(mockClientMessage.getClientData().getValue()).thenReturn("val");
 
         // Call method
         leaderNodeService.handleClientRequest(mockClientMessage);

@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.service.models;
 
 
+import pt.ulisboa.tecnico.hdsledger.communication.ClientData;
 import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
 
 public class InstanceInfo {
@@ -9,11 +10,11 @@ public class InstanceInfo {
     private int preparedRound = -1;
     private String preparedValue;
     private CommitMessage commitMessage;
-    private String inputValue;
+    private ClientData clientData;
     private int committedRound = -1;
 
-    public InstanceInfo(String inputValue) {
-        this.inputValue = inputValue;
+    public InstanceInfo(ClientData clientData) {
+        this.clientData = clientData;
     }
 
     public int getCurrentRound() {
@@ -40,12 +41,12 @@ public class InstanceInfo {
         this.preparedValue = preparedValue;
     }
 
-    public String getInputValue() {
-        return inputValue;
+    public ClientData getClientData() {
+        return clientData;
     }
 
-    public void setInputValue(String inputValue) {
-        this.inputValue = inputValue;
+    public void setClientData(ClientData clientData) {
+        this.clientData = clientData;
     }
 
     public int getCommittedRound() {

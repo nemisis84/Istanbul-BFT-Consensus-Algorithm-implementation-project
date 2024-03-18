@@ -3,23 +3,16 @@ package pt.ulisboa.tecnico.hdsledger.client.services;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
+import pt.ulisboa.tecnico.hdsledger.communication.ClientData;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
-import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
-import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
-
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 
@@ -30,8 +23,6 @@ public class ClientService implements UDPServiceClient {
     private final ProcessConfig[] nodesConfig;
     // Current node is leader
     private final ProcessConfig config;
-    // Leader configuration
-    private ProcessConfig leaderConfig;
 
     // Link to communicate with nodes
     private final Link link;
@@ -40,29 +31,26 @@ public class ClientService implements UDPServiceClient {
 
     private int timeout;
 
-    // Client requests
-    private String clientRequestID;
+    private int allowedFaults;
 
-    private String inputValue;
+    // < requestID, confirmationMessage count>
+    private Map<Integer, Integer> requestTracker = new ConcurrentHashMap<>();
 
-    // if the rules have been done already
-    private boolean rule1 = false;
-
-    private boolean rule2 = false;
 
     public ClientService(Link link, ProcessConfig config,
             ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) {
 
         this.link = link;
         this.config = config;
-        this.leaderConfig = leaderConfig;
         this.nodesConfig = nodesConfig;
-
+        this.allowedFaults = numberOfFaults(nodesConfig.length);
+        System.out.println(this.allowedFaults);
         this.timeout = 5000;
     }
 
-    public void sendClientMessage(Message message) {
-        link.broadcast(message);
+    public void sendClientMessage(ClientMessage clientMessage) {
+        this.requestTracker.put(clientMessage.getClientData().getRequestID(), 0);
+        link.broadcast(clientMessage);
     }
 
     public ProcessConfig getConfig() {
@@ -87,6 +75,30 @@ public class ClientService implements UDPServiceClient {
         timer.schedule(task, timeout); // 1000 milliseconds = 1 second
     }
 
+    public static int numberOfFaults(int N) {
+        return (N-1)/3;
+    }
+
+    private void handleConfirmationMessage(ClientMessage clientMessage){
+        ClientData clientData = clientMessage.getClientData();
+        String clientID = clientData.getClientID();
+        int requestID = clientData.getRequestID();
+
+        if (!clientID.equals(this.config.getId())){
+            return;
+        }
+        // Check if request id is in requestTracker map.
+        // Increment value with one
+        if (requestTracker.containsKey(requestID)) {
+            int count = requestTracker.getOrDefault(requestID, 0) + 1;
+            requestTracker.put(requestID, count);
+            if (count == this.allowedFaults+1) {
+                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Recieved {1} valid confirmations on transaction. Transaction appended to blockchain.",
+                config.getId(), count, clientMessage.getMessageId()));
+            }
+        }
+    }
+
     @Override
     public void listen() {
         try {
@@ -98,7 +110,6 @@ public class ClientService implements UDPServiceClient {
                     // remove
                     while (true) {
                         Message message = link.receive();
-
                         // non verified messages
                         if (message == null)
                             return;
@@ -116,6 +127,18 @@ public class ClientService implements UDPServiceClient {
                                     LOGGER.log(Level.INFO,
                                             MessageFormat.format("{0} - Received IGNORE message from {1}",
                                                     config.getId(), message.getSenderId()));
+
+                                case CLIENT_CONFIRMATION -> {
+
+                                    LOGGER.log(Level.INFO,
+                                            MessageFormat.format(
+                                                    "{0} - Received CLIENT_CONFIRMATION message from {1}",
+                                                    config.getId(), message.getSenderId()));
+                    
+                                                                                  
+                                    ClientMessage confirmationMessage = (ClientMessage) message;
+                                    handleConfirmationMessage(confirmationMessage);
+                                }
 
                                 default ->
                                     LOGGER.log(Level.INFO,

@@ -5,14 +5,14 @@ import com.google.gson.Gson;
 public class PrePrepareMessage {
     
     // Value
-    private String value;
+    private ClientData clientData;
 
-    public PrePrepareMessage(String value) {
-        this.value = value;
+    public PrePrepareMessage(ClientData clientData) {
+        this.clientData = clientData;
     }
 
-    public String getValue() {
-        return value;
+    public ClientData getClientData() {
+        return clientData;
     }
 
     public String toJson() {
