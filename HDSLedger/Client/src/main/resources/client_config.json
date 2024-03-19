@@ -4,5 +4,17 @@
         "isleader": false,
         "hostname": "localhost",
         "port": 3005
+    },
+    {
+        "id": "client2",
+        "isleader": false,
+        "hostname": "localhost",
+        "port": 3006
+    },
+    {
+        "id": "client3",
+        "isleader": false,
+        "hostname": "localhost",
+        "port": 3007
     }
 ]
