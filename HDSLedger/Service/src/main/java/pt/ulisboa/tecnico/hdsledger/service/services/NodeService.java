@@ -854,6 +854,27 @@ public class NodeService implements UDPService {
         String balanceUser = clientData.getValue();
         float balance = clientBalances.getOrDefault(balanceUser, 0.0f);
 
+        // Check if this client request is up next
+        while (!clientRequestQueue.isEmpty()) {
+            // Peek at the next client request without removing it from the queue
+            ClientData nextClientRequest = clientRequestQueue.peek();
+
+            // Check if the next client request matches the current client request
+            if (nextClientRequest.getClientID().equals(clientData.getClientID())
+                    && nextClientRequest.getRequestID() == clientData.getRequestID()) {
+                // This client request is up next, break out of the loop
+                clientRequestQueue.poll();
+                break;
+            }
+
+            // Wait for 0.5 seconds before checking again
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
         // Send the balance back to the client
         BalanceMessage balanceMessage = new BalanceMessage(balance, clientData.getRequestID(),
                 clientData.getClientID(), config.getId(), Message.Type.BALANCE_RESPONSE);
