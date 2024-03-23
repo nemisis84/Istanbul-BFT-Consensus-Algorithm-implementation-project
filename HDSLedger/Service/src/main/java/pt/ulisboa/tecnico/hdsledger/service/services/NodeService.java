@@ -957,7 +957,7 @@ public class NodeService implements UDPService {
                                     handleTransfer((ClientMessage) message);
 
                                 case BALANCE ->
-                                    handleBalanceRequest((ClientMessage) message);
+                                    handleBalanceRequest(message);
 
                                 case BALANCE_RESPONSE ->
                                     handleBalanceResponse((BalanceMessage) message);
