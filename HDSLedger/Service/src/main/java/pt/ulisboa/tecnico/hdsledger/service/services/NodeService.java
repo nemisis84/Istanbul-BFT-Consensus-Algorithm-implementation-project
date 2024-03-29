@@ -6,15 +6,19 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -120,6 +124,8 @@ public class NodeService implements UDPService {
 
     protected Map<Integer, Block> blockNumberToBlockMapping = new ConcurrentHashMap<>();
 
+    private HashSet<Integer> failed_instances;
+
     public NodeService(Link link, ProcessConfig config,
             ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) {
 
@@ -145,6 +151,8 @@ public class NodeService implements UDPService {
         this.nextBlock = 1;
 
         this.startConsensusWithTimer();
+
+        this.failed_instances = new HashSet<>();
     }
 
     public void sendTestMessage(String nodeId, Message message) {
@@ -259,6 +267,11 @@ public class NodeService implements UDPService {
 
         instance.setCurrentRound(instance.getCurrentRound() + 1);
 
+        if (instance.getCurrentRound() > 4) {
+            this.failed_instances.add(localConsensusInstance);
+            return;
+        }
+
         sendRoundChangeMessage(instance.getCurrentRound());
 
         startTimer();
@@ -273,6 +286,9 @@ public class NodeService implements UDPService {
         if (instance == null) {
             return;
         }
+
+        if (this.failed_instances.contains(message.getConsensusInstance()))
+            return;
 
         LOGGER.log(Level.INFO,
                 MessageFormat.format(
@@ -466,13 +482,13 @@ public class NodeService implements UDPService {
         System.out.println("Starting consensus");
 
         // Create new block
-        Block block = this.blockCreator();
+        Block startBlock = this.blockCreator();
         
         // Wait until it's this block's turn
-        while (block.getBLOCK_ID() > this.nextBlock){
+        while (startBlock.getBLOCK_ID() > this.nextBlock) {
             LOGGER.log(Level.INFO,
                 MessageFormat.format("{0} - Block {1} is not up next, wait for synchronization. Next block is {1}",
-                    config.getId(), block.getBLOCK_ID(), this.nextBlock)); 
+                    config.getId(), startBlock.getBLOCK_ID(), this.nextBlock)); 
                     try {
                         Thread.sleep(500);
                     } catch (InterruptedException e) {
@@ -481,12 +497,26 @@ public class NodeService implements UDPService {
         
         }
 
-        synchronized (block) {
-            Iterator<ClientData> iterator = block.getTransactions().iterator();
+        String client = null;
+        Block block =  new Block(startBlock.getBLOCK_ID());
+        block.setPrevHash(startBlock.getPrevHash());
+        if (failed_instances.contains(getConsensusInstance().get())) {
+            client = this.clientBalances.keySet().stream().filter(entry->entry.endsWith((String.valueOf((getConsensusInstance().get()%4)+1)))).findAny().get();
+        }
+
+        synchronized (startBlock) {
+            Iterator<ClientData> iterator = startBlock.getTransactions().iterator();
             while (iterator.hasNext()) {
                 ClientData transaction = iterator.next();
                 if (!authorizeClientTransaction(transaction)) {
                     iterator.remove();
+                }
+                if (client != null) {
+                    if (transaction.getClientID().equals(client)) {
+                        block.addTransaction(transaction);
+                    }
+                } else {
+                    block.addTransaction(transaction);
                 }
             }
         }
