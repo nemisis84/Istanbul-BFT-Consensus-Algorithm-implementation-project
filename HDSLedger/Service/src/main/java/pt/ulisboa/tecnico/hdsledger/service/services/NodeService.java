@@ -219,6 +219,8 @@ public class NodeService implements UDPService {
 
         int localConsensusInstance = this.consensusInstance.get();
         InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
+
+        
         for (ProcessConfig node : nodesConfig) {
             if ((Integer.parseInt(node.getId()) - 1) == (instance.getCurrentRound() - 1) % nodesConfig.length) {
                 node.setleader(true);
@@ -287,8 +289,6 @@ public class NodeService implements UDPService {
             return;
         }
 
-        if (this.failed_instances.contains(message.getConsensusInstance()))
-            return;
 
         LOGGER.log(Level.INFO,
                 MessageFormat.format(
@@ -305,6 +305,11 @@ public class NodeService implements UDPService {
 
         if (numMessages >= this.quorum && this.config.isLeader() && !this.rule1
                 && this.justifyRoundChange(this.roundChangeMessages)) {
+
+            if (instance.getCurrentRound() > 4) {
+                this.failed_instances.add(localConsensusInstance);
+                return;
+            }
 
             this.rule1 = true;
 
@@ -344,6 +349,11 @@ public class NodeService implements UDPService {
                     .mapToInt(entry -> entry.getRound()).min().orElseThrow();
 
             instance.setCurrentRound(newRound);
+
+            if (instance.getCurrentRound() > 4) {
+                this.failed_instances.add(localConsensusInstance);
+                return;
+            }
 
             updateLeader();
 
