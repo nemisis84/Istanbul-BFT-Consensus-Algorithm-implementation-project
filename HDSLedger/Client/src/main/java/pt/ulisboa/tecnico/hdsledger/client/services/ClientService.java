@@ -42,6 +42,8 @@ public class ClientService implements UDPServiceClient {
     // Keep track of balance responses to request IDs
     private Map<Integer, Map<Float, Integer>> balanceRequestTracker = new HashMap<>();
 
+    private Map<String, Map<Float, Integer>> reciverConfirmationTracker = new ConcurrentHashMap<>();
+
     public ClientService(Link link, ProcessConfig config,
             ProcessConfig leaderConfig, ProcessConfig[] nodesConfig, Wallet wallet) {
 
@@ -49,7 +51,6 @@ public class ClientService implements UDPServiceClient {
         this.config = config;
         this.nodesConfig = nodesConfig;
         this.allowedFaults = numberOfFaults(nodesConfig.length);
-        System.out.println(this.allowedFaults);
         this.timeout = 5000;
         this.wallet = wallet;
     }
@@ -149,6 +150,38 @@ public class ClientService implements UDPServiceClient {
         }
     }
 
+    private void handleRecieverConfirmationMessage(BalanceMessage recieverConfirmation){
+        float amount = recieverConfirmation.getBalance();
+        String clientID = recieverConfirmation.getClientID();
+        int requestID = recieverConfirmation.getRequestID();
+        String transactionID = clientID + "_" + requestID;
+        String recivingClient = recieverConfirmation.getRequestedClient();
+
+        if (!recivingClient.equals(this.config.getId())) {
+            return;
+        }
+        // Update the balance
+        if (!reciverConfirmationTracker.containsKey(transactionID)) {
+            reciverConfirmationTracker.put(transactionID, new ConcurrentHashMap<>());
+        }
+
+        Map<Float, Integer> transactionConfirmations = reciverConfirmationTracker.get(transactionID);
+
+        // Get count, increment, and replace
+        int newCount = transactionConfirmations.getOrDefault(amount, 0) + 1;
+        transactionConfirmations.put(amount, newCount);
+
+        // Check if we have quorum for value
+        if (newCount == 2 * this.allowedFaults + 1) { // 2f+1
+            LOGGER.log(Level.INFO, MessageFormat.format(
+                    "{0} - Recieved {1} valid confirmations on a transaction. {2} recieved from {3}",
+                    config.getId(), newCount, amount, clientID));
+            balanceRequestTracker.remove(transactionID); // To not process redundant value responses
+        }
+
+    }
+
+
     @Override
     public void listen() {
         try {
@@ -163,7 +196,6 @@ public class ClientService implements UDPServiceClient {
                         // non verified messages
                         if (message == null)
                             return;
-
                         // Separate thread to handle each message
                         new Thread(() -> {
 
@@ -202,6 +234,17 @@ public class ClientService implements UDPServiceClient {
                                     }
                                     BalanceMessage balanceMessage = (BalanceMessage) message;
                                     handleBalanceResponse(balanceMessage);
+                                }
+
+                                case CLIENT_RECIEVER_CONFIRMATION -> {
+
+                                    LOGGER.log(Level.INFO,
+                                            MessageFormat.format("{0} - Received CLIENT_RECIEVER_CONFIRMATION response from {1}",
+                                                    config.getId(), message.getSenderId()));    
+
+                                    BalanceMessage recieverConfirmation = (BalanceMessage) message;
+                                    handleRecieverConfirmationMessage(recieverConfirmation);
+
                                 }
 
                                 default ->

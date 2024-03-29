@@ -52,8 +52,8 @@ public class Node {
 
             nodeService.initialiseClientBalances(clientConfigs);
 
-            if (nodeConfig.isLeader())
-                Thread.sleep(21000);
+            // if (nodeConfig.isLeader())
+            //     Thread.sleep(21000);
 
             nodeService.listen();
 

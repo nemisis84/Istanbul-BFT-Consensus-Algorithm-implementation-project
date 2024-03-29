@@ -302,7 +302,8 @@ public class Link {
                     || message.getType().equals(Message.Type.CLIENT_CONFIRMATION)
                     || message.getType().equals(Message.Type.BALANCE)) {
                 message = new Gson().fromJson(serialized, ClientMessage.class);
-            } else if (message.getType().equals(Message.Type.BALANCE_RESPONSE)) {
+            } else if (message.getType().equals(Message.Type.BALANCE_RESPONSE)
+                    || message.getType().equals(Message.Type.CLIENT_RECIEVER_CONFIRMATION)) {
                 message = new Gson().fromJson(serialized, BalanceMessage.class);
             } else {
                 message = new Gson().fromJson(serialized, this.messageClass);
