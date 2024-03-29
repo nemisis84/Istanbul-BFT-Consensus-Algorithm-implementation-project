@@ -2,7 +2,6 @@ package pt.ulisboa.tecnico.hdsledger.client;
 
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.client.models.ClientMessageBuilder;
-import pt.ulisboa.tecnico.hdsledger.client.models.Wallet;
 import pt.ulisboa.tecnico.hdsledger.client.services.ClientService;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
@@ -23,8 +22,6 @@ public class Client {
 
     private static final String CLIENTCONFIGPATH = "src/main/resources/client_config.json";
     private static final String NODECONFIGPATH = "src/main/resources/regular_config.json";
-
-    private static Wallet wallet;
 
     public static void main(String[] args) throws IOException, ClassNotFoundException {
         try {
@@ -50,18 +47,14 @@ public class Client {
 
             link.addClient(clientConfigs);
 
-            wallet = new Wallet(clientConfig.getId(), startBalance, clientConfig.getPrivateKey(),
-                    clientConfig.getPublicKey());
-
             // Create a clientService for sending messages to nodes
-            ClientService clientService = new ClientService(link, clientConfig, leaderConfig, nodeConfigs, wallet);
+            ClientService clientService = new ClientService(link, clientConfig, leaderConfig, nodeConfigs);
             // Create a ClientMessageBuilder for creating the messages
             ClientMessageBuilder clientMessageBuilder = new ClientMessageBuilder(clientConfig);
             // Start a thread to listen for messages from nodes
             new Thread(() -> {
                 // Listen for incoming messages from nodes
                 clientService.listen();
-
             }).start();
 
             // Continuous loop to read user commands
@@ -85,11 +78,7 @@ public class Client {
                         }
                         float amount = Float.parseFloat(parts[0]); // Throw exception if not float
                         if (amount <= 0) {
-                            System.out.println("Amount must be a positive integer.");
-                            break;
-                        }
-                        if (amount > wallet.getBalance()) { // ! Consider removing, wallets easy to go out of sync
-                            System.out.println("Insufficient funds for this operation.");
+                            System.out.println("Amount must be a positive number.");
                             break;
                         }
                         String destinationKey = parts[1]; // Consider adding a check for valid public key
@@ -99,8 +88,9 @@ public class Client {
                         clientService.clientTransfer(transferMessage);
                         break;
                     case "balance":
-                        ClientMessage selfBalanceRequest = clientMessageBuilder.buildMessage(wallet.getId(),
-                                clientConfig.getId(), Message.Type.BALANCE); // payload = dest public key
+                        ClientMessage selfBalanceRequest = clientMessageBuilder.buildMessage(clientConfig.getId(),
+                                clientConfig.getId(),
+                                Message.Type.BALANCE);
                         clientService.checkBalance(selfBalanceRequest);
 
                         break;

@@ -276,8 +276,6 @@ public class Link {
             throw new HDSSException(ErrorMessage.NoSuchNode);
         }
 
-        System.out.println("Receiving " + message.getType() + " message from " + senderId);
-
         // Handle ACKS, since it's possible to receive multiple acks from the same
 
         // message
@@ -342,8 +340,7 @@ public class Link {
 
         // Send ack
         if (!local) {
-            InetAddress address = InetAddress.getByName(config.getHostname()); // ! gave wrong address, changed for
-                                                                               // simplicity
+            InetAddress address = InetAddress.getByName(config.getHostname());
             int port = response.getPort();
 
             Message responseMessage = new Message(this.config.getId(), Message.Type.ACK);

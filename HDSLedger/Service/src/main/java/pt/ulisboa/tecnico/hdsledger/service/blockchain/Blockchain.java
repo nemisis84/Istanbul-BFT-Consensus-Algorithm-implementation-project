@@ -9,9 +9,8 @@ import java.io.ObjectOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-
 public class Blockchain {
-    
+
     private ArrayList<Block> blocks;
 
     public Blockchain() {
@@ -23,11 +22,10 @@ public class Blockchain {
 
     // Add a new block to the blockchain
     public boolean addBlock(Block block) throws NoSuchAlgorithmException, IOException {
-        if (block.getPrevHash() == null){
+        if (block.getPrevHash() == null) {
             System.out.println("No prevHash in block");
             return false;
-        }
-        else if (!block.getPrevHash().equals(calculateHash(this.getLatestBlock()))){
+        } else if (!block.getPrevHash().equals(calculateHash(this.getLatestBlock()))) {
             System.out.println("PrevHash does not equal the previous block's hash");
             return false;
         }
@@ -35,8 +33,8 @@ public class Blockchain {
         return true;
     }
 
-    public static boolean verifyBlock(Block block, String hash) throws NoSuchAlgorithmException, IOException{
-        if (calculateHash(block).equals(hash)){
+    public static boolean verifyBlock(Block block, String hash) throws NoSuchAlgorithmException, IOException {
+        if (calculateHash(block).equals(hash)) {
             return true;
         }
         return false;
@@ -48,6 +46,10 @@ public class Blockchain {
 
     public List<Block> getBlocks() {
         return blocks;
+    }
+
+    public int getLength() {
+        return blocks.size();
     }
 
     public static byte[] serializeBlock(Block block) throws IOException {

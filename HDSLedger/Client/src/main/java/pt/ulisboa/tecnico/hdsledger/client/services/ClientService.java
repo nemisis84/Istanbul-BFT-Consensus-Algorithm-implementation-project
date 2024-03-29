@@ -17,7 +17,6 @@ import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
-import pt.ulisboa.tecnico.hdsledger.client.models.Wallet;
 
 public class ClientService implements UDPServiceClient {
 
@@ -35,8 +34,6 @@ public class ClientService implements UDPServiceClient {
 
     private int allowedFaults;
 
-    private Wallet wallet;
-
     // < requestID, confirmationMessage count>
     private Map<Integer, Integer> transferRequestTracker = new ConcurrentHashMap<>();
     // Keep track of balance responses to request IDs
@@ -45,14 +42,13 @@ public class ClientService implements UDPServiceClient {
     private Map<String, Map<Float, Integer>> reciverConfirmationTracker = new ConcurrentHashMap<>();
 
     public ClientService(Link link, ProcessConfig config,
-            ProcessConfig leaderConfig, ProcessConfig[] nodesConfig, Wallet wallet) {
+            ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) {
 
         this.link = link;
         this.config = config;
         this.nodesConfig = nodesConfig;
         this.allowedFaults = numberOfFaults(nodesConfig.length);
         this.timeout = 5000;
-        this.wallet = wallet;
     }
 
     public void clientTransfer(ClientMessage transferMessage) {
@@ -63,7 +59,6 @@ public class ClientService implements UDPServiceClient {
 
     public void checkBalance(ClientMessage balanceRequest) {
         // Create message with balance request
-        System.out.println("request id" + balanceRequest.getClientData().getRequestID());// !
         String userKey = balanceRequest.getClientData().getValue();
         this.balanceRequestTracker.put(balanceRequest.getClientData().getRequestID(), new ConcurrentHashMap<>());
         link.broadcast(balanceRequest);
@@ -105,24 +100,6 @@ public class ClientService implements UDPServiceClient {
 
     public ProcessConfig getConfig() {
         return this.config;
-    }
-
-    public void cancelTimer() {
-        if (timer != null)
-            timer.cancel();
-    }
-
-    private void startTimer() { // ! Never used
-        cancelTimer();
-        TimerTask task = new TimerTask() {
-            @Override
-            public void run() {
-                System.out.println("Task timed out!");
-            }
-        };
-
-        timer = new Timer(true); // Daemon thread
-        timer.schedule(task, timeout); // 1000 milliseconds = 1 second
     }
 
     public static int numberOfFaults(int N) {
@@ -182,6 +159,17 @@ public class ClientService implements UDPServiceClient {
     }
 
 
+    // Shut down currently running services
+    public void shutdown() {
+        System.out.println("Shutting down ClientService...");
+
+        // Shutdown Link or network components
+        if (link != null) {
+            link.shutdown(); // Ensure this method properly closes sockets and cleans up resources.
+        }
+        System.out.println("ClientService shutdown completed.");
+    }
+
     @Override
     public void listen() {
         try {
@@ -226,7 +214,7 @@ public class ClientService implements UDPServiceClient {
                                             MessageFormat.format("{0} - Received BALANCE response from {1}",
                                                     config.getId(), message.getSenderId()));
                                     // Verify that message is instance of BalanceMessage
-                                    if (!(message instanceof BalanceMessage)) { // ! this is called, response is invalid
+                                    if (!(message instanceof BalanceMessage)) {
                                         LOGGER.log(Level.INFO,
                                                 MessageFormat.format("{0} - Received invalid balance response from {1}",
                                                         config.getId(), message.getSenderId()));

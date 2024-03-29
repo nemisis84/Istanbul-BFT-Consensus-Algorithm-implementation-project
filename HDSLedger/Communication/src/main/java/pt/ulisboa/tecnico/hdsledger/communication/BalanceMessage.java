@@ -10,11 +10,20 @@ public class BalanceMessage extends Message {
     private String clientID;
     private String requestedClient;
 
-    public BalanceMessage(float balance, int requestID, String clientID, String senderID, Type type) {
+    public BalanceMessage(String senderID, Type type) {
         super(senderID, type);
+    }
+
+    public void setBalance(float balance) {
         this.balance = balance;
-        this.requestID = requestID;
+    }
+
+    public void setClientId(String clientID) {
         this.clientID = clientID;
+    }
+
+    public void setRequestId(Integer requestID) {
+        this.requestID = requestID;
     }
 
     public float getBalance() {
