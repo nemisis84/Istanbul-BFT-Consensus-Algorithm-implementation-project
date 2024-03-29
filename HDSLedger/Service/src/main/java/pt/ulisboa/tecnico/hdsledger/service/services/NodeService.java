@@ -924,10 +924,14 @@ public class NodeService implements UDPService {
         confirmationMessage.setClientData(transaction);
         link.send(transaction.getClientID(), confirmationMessage);
         
-
-        BalanceMessage recieverConfirmation = new BalanceMessage(Float.parseFloat(amount), transaction.getRequestID(), transaction.getClientID(), config.getId(), Message.Type.CLIENT_RECIEVER_CONFIRMATION);
+        // Inform the reciever
+        BalanceMessage recieverConfirmation = new BalanceMessage(config.getId(), Message.Type.CLIENT_RECIEVER_CONFIRMATION);
         recieverConfirmation.setRequestedClient(destination);
-        
+
+        recieverConfirmation.setClientId(transaction.getClientID());
+        recieverConfirmation.setRequestId(transaction.getRequestID());
+        recieverConfirmation.setBalance(amountToTransfer);
+
         link.send(destination, recieverConfirmation);
 
         // Pay the leader
